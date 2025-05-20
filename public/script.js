@@ -25,10 +25,4 @@ document.getElementById('updateButton').addEventListener('click', async () => {
             messageDiv.textContent = `エラー: ${result.message}`;
             messageDiv.className = 'error';
         }
-
-    } catch (error) {    // 通信エラー処理
-        console.error('Fetch error:', error);
-        messageDiv.textContent = '通信エラーが発生しました。コンソールを確認してください。';
-        messageDiv.className = 'error';
-    }
 });
