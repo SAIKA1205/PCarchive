@@ -1,17 +1,25 @@
+// イベントリスナーの設定
 document.getElementById('updateButton').addEventListener('click', async () => {
+// 入力値の取得と初期化
     const characterId = document.getElementById('characterId').input_value.trim();
     const messageDiv = document.getElementById('message');
     messageDiv.textContent = '';
     messageDiv.className = '';
 
+// 入力チェック
     if (!characterId) {
         messageDiv.textContent = 'キャラクターIDを入力してください。';
         messageDiv.className = 'error';
         return;
     }
 
+// 処理中メッセージの表示
     messageDiv.textContent = '処理中...';
 
+// URLの作成
+
+    
+// APIリクエストの送信
     try {
         const response = await fetch('/api/sync-character', {
             method: 'POST',
@@ -21,6 +29,7 @@ document.getElementById('updateButton').addEventListener('click', async () => {
             body: JSON.stringify({ characterId: characterId }),
         });
 
+        // レスポンスの処理
         const result = await response.json();
 
         if (response.ok) {
@@ -30,7 +39,7 @@ document.getElementById('updateButton').addEventListener('click', async () => {
             messageDiv.textContent = `エラー: ${result.message}`;
             messageDiv.className = 'error';
         }
-    } catch (error) {
+    } catch (error) {    // 通信エラー処理
         console.error('Fetch error:', error);
         messageDiv.textContent = '通信エラーが発生しました。コンソールを確認してください。';
         messageDiv.className = 'error';
