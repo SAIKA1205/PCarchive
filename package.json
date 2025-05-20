@@ -1,0 +1,19 @@
+{
+  "name": "my-notion-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@notionhq/client": "^2.2.15", // バージョンは異なる場合があります
+    "dotenv": "^16.4.5",          // バージョンは異なる場合があります
+    "express": "^4.19.2",         // バージョンは異なる場合があります
+    "node-fetch": "^2.7.0"        // v2系をCJS環境で使用。v3以降はESM
+  }
+}
