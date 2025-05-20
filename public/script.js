@@ -13,25 +13,11 @@ document.getElementById('updateButton').addEventListener('click', async () => {
         return;
     }
 
-// 処理中メッセージの表示
-    messageDiv.textContent = '処理中...';
-
-// URLの作成
-
+    // 処理中メッセージの表示
+        messageDiv.textContent = '処理中...';
     
-// APIリクエストの送信
-    try {
-        const response = await fetch('/api/sync-character', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ characterId: characterId }),
-        });
-
-        // レスポンスの処理
+    // レスポンスの処理
         const result = await response.json();
-
         if (response.ok) {
             messageDiv.textContent = `処理完了: ${result.message}. NotionページID: ${result.pageId || 'N/A'}`;
             messageDiv.className = 'success';
@@ -39,6 +25,7 @@ document.getElementById('updateButton').addEventListener('click', async () => {
             messageDiv.textContent = `エラー: ${result.message}`;
             messageDiv.className = 'error';
         }
+
     } catch (error) {    // 通信エラー処理
         console.error('Fetch error:', error);
         messageDiv.textContent = '通信エラーが発生しました。コンソールを確認してください。';
