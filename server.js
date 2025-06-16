@@ -144,6 +144,8 @@ async function updateNotionDatabase(notion, databaseId, pcData, characterId) {
     チャットパレット: { rich_text: [{ text: { content: chatPalette } }] },
     ID: { number: parseInt(characterId, 10) },
   };
+  console.log('📝 Notionに送信するデータ:');
+  console.dir(properties, { depth: null });
 
   if (pageId) {
     // 上書き
