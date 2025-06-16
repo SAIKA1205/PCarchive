@@ -124,6 +124,15 @@ function extractNumber(str) {
   return match ? Number(match[0]) : null;
 }
 
+function filterSpoiler(text) {
+  const spoilerKeyword = '※※※※　以下、ネタバレ有　※※※';
+  const index = text.indexOf(spoilerKeyword);
+  if (index !== -1) {
+    return text.slice(0, index).trim(); // ネタバレ部分を削除
+  }
+  return text; // キーワードがなければそのまま返す
+}
+
   const properties = {
     職業: { rich_text: [{ text: { content: pcData.shuzoku || '' } }] },
     性別: { select: pcData.sex? { name: pcData.sex } : null },
@@ -146,7 +155,7 @@ function extractNumber(str) {
     アイデア: { number: Number(pcData.NP12) || null },
     幸運: { number: Number(pcData.NP13) || null },
     知識: { number: Number(pcData.NP14) || null },
-    メモ欄: { rich_text: [{ text: { content: pcData.pc_making_memo || '' } }] },
+    メモ欄: { rich_text: [{ text: { content: filterSpoiler(pcData.memo || ''),},}],},
     チャットパレット: { rich_text: [{ text: { content: chatPalette } }] },
     ID: { number: parseInt(characterId, 10) },
   };
