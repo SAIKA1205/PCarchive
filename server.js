@@ -107,6 +107,39 @@ async function updateNotionDatabase(notion, databaseId, pcData, characterId) {
 
   const pageId = response.results[0]?.id;
 
+　// 名前の取得
+　function splitNameAndKana(nameWithKana) {
+  　const match = nameWithKana.match(/^(.+?)\((.+?)\)$/);
+  　if (match) {
+　    return {
+  　    name: match[1].trim(),
+    　  kana: match[2].trim(),
+    　};
+  　} else {
+　    return {
+  　    name: nameWithKana.trim(),
+    　  kana: '',
+    　};
+  　}
+　}
+　// 年齢・身長・体重の整形
+　function extractNumber(str) {
+  　if (!str) return null;
+  　const match = String(str).match(/\d+/); // 連続する数字だけ抽出
+  　return match ? Number(match[0]) : null;
+　}
+　const { name, kana } = splitNameAndKana(pcData.name || '');
+
+　// メモ欄の整形
+　function filterSpoiler(text) {
+　  const spoilerKeyword = '※※※　以下、ネタバレ有　※※※';
+  　const index = text.indexOf(spoilerKeyword);
+  　if (index !== -1) {
+    　return text.slice(0, index).trim(); // ネタバレ部分を削除
+  　}
+  　return text; // キーワードがなければそのまま返す
+　}
+
   // チャットパレット生成
   const chatPalette = Object.entries(pcData.status || {})
     .map(([key, val]) => {
@@ -118,22 +151,9 @@ async function updateNotionDatabase(notion, databaseId, pcData, characterId) {
     .filter(Boolean)
     .join('\n');
 
-function extractNumber(str) {
-  if (!str) return null;
-  const match = String(str).match(/\d+/); // 連続する数字だけ抽出
-  return match ? Number(match[0]) : null;
-}
-
-function filterSpoiler(text) {
-  const spoilerKeyword = '※※※　以下、ネタバレ有　※※※';
-  const index = text.indexOf(spoilerKeyword);
-  if (index !== -1) {
-    return text.slice(0, index).trim(); // ネタバレ部分を削除
-  }
-  return text; // キーワードがなければそのまま返す
-}
-
   const properties = {
+    名前: { title: [{ text: { content: name }] },
+    カナ: { rich_text: [{ text: { content: kana } }] },
     職業: { rich_text: [{ text: { content: pcData.shuzoku || '' } }] },
     性別: { select: pcData.sex? { name: pcData.sex } : null },
     年齢: { number: extractNumber(pcData.age) },
@@ -155,7 +175,7 @@ function filterSpoiler(text) {
     アイデア: { number: Number(pcData.NP12) || null },
     幸運: { number: Number(pcData.NP13) || null },
     知識: { number: Number(pcData.NP14) || null },
-    メモ欄: { rich_text: [{ text: { content: filterSpoiler(pcData.memo || ''),},}],},
+    メモ欄: { rich_text: [{ text: { content: filterSpoiler(pcData.pc_making_memo || ''),},}],},
     チャットパレット: { rich_text: [{ text: { content: chatPalette } }] },
     ID: { number: parseInt(characterId, 10) },
   };
