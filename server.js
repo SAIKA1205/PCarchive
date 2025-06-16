@@ -125,7 +125,7 @@ function extractNumber(str) {
 }
 
 function filterSpoiler(text) {
-  const spoilerKeyword = '※※※※　以下、ネタバレ有　※※※';
+  const spoilerKeyword = '※※※　以下、ネタバレ有　※※※';
   const index = text.indexOf(spoilerKeyword);
   if (index !== -1) {
     return text.slice(0, index).trim(); // ネタバレ部分を削除
