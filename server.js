@@ -3,29 +3,25 @@ const express = require('express');
 const { Client } = require('@notionhq/client');
 const axios = require('axios');
 const vm = require('vm');
-require('dotenv').config(); // .envファイルから環境変数を読み込む
+require('dotenv').config();
 const path = require('path');
 
 // --- アプリケーションの基本設定 ---
 const app = express();
-const PORT = process.env.PORT || 3000; // Render.comが自動で設定するポートを使用
+const PORT = process.env.PORT || 3000;
 
 // --- ミドルウェアの設定 ---
-app.use(express.json()); // JSON形式のリクエストを解析できるようにする
-app.use(express.static(path.join(__dirname, 'public'))); // publicフォルダを静的ファイルの配信に使う
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 // --- APIエンドポイントの定義 ---
-// フロントエンドからのリクエストを受け付ける窓口
 app.post('/api/sync', async (req, res) => {
-  // リクエストからAPIキー、データベースID、キャラクターIDを取得
   const { notionApiKey, databaseId, characterId } = req.body;
 
-  // 必要な情報が揃っているかチェック
   if (!notionApiKey || !databaseId || !characterId) {
     return res.status(400).json({ message: 'APIキー、データベースID、キャラクターIDは必須です。' });
   }
 
-  // Notionクライアントの初期化（リクエストごとにキーを設定）
   const notion = new Client({ auth: notionApiKey });
   const numericCharacterId = parseInt(characterId, 10);
   if (isNaN(numericCharacterId)) {
@@ -33,15 +29,9 @@ app.post('/api/sync', async (req, res) => {
   }
 
   try {
-    // キャラクター保管所からJSデータを取得
     const charaJsText = await getCharaSheetData(numericCharacterId);
-    // 取得したJSデータをパースしてオブジェクトとして受け取る
     const pcData = parseCharaJsToJson(charaJsText);
-
-    // ※ここから、pcDataをnotionAPIを活用してデータベースに整形・上書き保存する処理を実装してください。
-    // 例:
-    // await updateNotionDatabase(notion, databaseId, pcData);
-
+    await updateNotionDatabase(notion, databaseId, pcData);
     return res.status(200).json({ message: '同期が成功しました。' });
   } catch (error) {
     return res.status(500).json({ message: 'エラーが発生しました: ' + error.message });
@@ -63,13 +53,10 @@ async function getCharaSheetData(id) {
 }
 
 // --- JavaScript形式のデータをパースする関数 ---
-// ※ 取得したデータが単なるオブジェクトリテラルの場合、評価用に "pc = " を付与しています
 function parseCharaJsToJson(jsText) {
   const sandbox = {};
   vm.createContext(sandbox);
-
   try {
-    // jsText がオブジェクトリテラルの場合にも対応するため、先頭に "pc = " を付与します
     const script = new vm.Script(`pc = ${jsText}`);
     script.runInContext(sandbox);
   } catch (e) {
@@ -83,10 +70,61 @@ function parseCharaJsToJson(jsText) {
   return sandbox.pc;
 }
 
-// --- Notionデータベース更新用関数（例）---
-// function updateNotionDatabase(notion, databaseId, pcData) {
-//   // ここでpcDataをNotionデータベースの項目に整形して上書き保存する処理を実装します
-// }
+// --- Notionデータベース更新用関数 ---
+async function updateNotionDatabase(notion, databaseId, pcData) {
+  const existingPages = await notion.databases.query({
+    database_id: databaseId,
+    filter: {
+      property: 'ID',
+      number: {
+        equals: pcData.id,
+      },
+    },
+  });
+
+  const properties = {
+    'ID': { number: pcData.id },
+    '職業': { rich_text: [{ text: { content: pcData.job || '' } }] },
+    '性別': { select: { name: pcData.gender || '不明' } },
+    '年齢': { number: parseInt(pcData.age) || 0 },
+    '身長': { number: parseInt(pcData.height) || 0 },
+    '体重': { number: parseInt(pcData.weight) || 0 },
+    '出身地': { select: { name: pcData.birthplace || '不明' } },
+    '髪色': { select: { name: pcData.hair_color || '不明' } },
+    '瞳色': { select: { name: pcData.eye_color || '不明' } },
+    '肌色': { select: { name: pcData.skin_color || '不明' } },
+    'STR': { select: { name: String(pcData.st) } },
+    'CON': { select: { name: String(pcData.co) } },
+    'POW': { select: { name: String(pcData.po) } },
+    'DEX': { select: { name: String(pcData.dx) } },
+    'APP': { select: { name: String(pcData.ap) } },
+    'SIZ': { select: { name: String(pcData.si) } },
+    'INT': { select: { name: String(pcData.in) } },
+    'EDU': { select: { name: String(pcData.ed) } },
+    'SAN値': { select: { name: String(pcData.san) } },
+    'アイデア': { select: { name: String(pcData.idea) } },
+    '幸運': { select: { name: String(pcData.luck) } },
+    '知識': { select: { name: String(pcData.know) } },
+    'メモ欄': { rich_text: [{ text: { content: pcData.memo || '' } }] },
+    'チャットパレット': { rich_text: [{ text: { content: pcData.chat_palette || '' } }] },
+  };
+
+  if (existingPages.results.length > 0) {
+    const pageId = existingPages.results[0].id;
+    await notion.pages.update({
+      page_id: pageId,
+      properties,
+    });
+  } else {
+    await notion.pages.create({
+      parent: { database_id: databaseId },
+      properties: {
+        '名前': { title: [{ text: { content: pcData.name || '未設定' } }] },
+        ...properties,
+      },
+    });
+  }
+}
 
 // --- サーバー起動 ---
 app.listen(PORT, () => {
