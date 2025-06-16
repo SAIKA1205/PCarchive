@@ -34,7 +34,7 @@ app.post('/api/sync', async (req, res) => {
     const charaDataText = await getCharaSheetData(characterId);
     
     // 取得したJavaScriptコードからJSONオブジェクトを安全に抽出して変換
-    const charaData = extractJsonFromScript(charaDataText);
+    const charaData = await extractJsonFromScript(charaDataText);
     console.log('データの取得と解析に成功しました。');
 
     // 2. Notionデータベースを検索して、該当キャラクターIDのページが既に存在するか確認
@@ -82,35 +82,21 @@ app.listen(PORT, () => {
   console.log(`サーバーがポート${PORT}で起動しました。 http://localhost:${PORT}`);
 });
 
-
-// --- ヘルパー関数群 ---
-
-/**
- * キャラクター保管所のレスポンス(JavaScript)からJSONオブジェクトを抽出する堅牢な関数
- * @param {string} scriptText - キャラクター保管所から取得したJavaScriptコード
- * @returns {object} - パースされたJSONオブジェクト
- */
-function extractJsonFromScript(scriptText) {
+async function extractJsonFromScript(scriptText) {
   const prefix = 'var chara = ';
-  // 先頭の空白をトリムして、期待した接頭辞で始まるか確認
-  if (!scriptText.trim().startsWith(prefix)) {
-    console.error('予期しないデータ形式です:', scriptText);
-    throw new Error('キャラクター保管所から予期しない形式のデータが返されました。');
-  }
-  
-  // 接頭辞 'var chara = ' が開始するインデックスを探す
   const startIndex = scriptText.indexOf(prefix) + prefix.length;
-  // 接頭辞以降の文字列を抽出
   let jsonString = scriptText.substring(startIndex);
 
-  // 末尾に ';' があれば取り除く
   if (jsonString.endsWith(';')) {
     jsonString = jsonString.slice(0, -1);
   }
 
   try {
-    // JSONとしてパース
-    return JSON.parse(jsonString);
+    const sandbox = {};
+    const vm = require('vm');
+    vm.createContext(sandbox);
+    vm.runInContext(`result = ${jsonString}`, sandbox);
+    return sandbox.result;
   } catch (e) {
     console.error("JSONの解析に失敗しました。抽出された文字列:", jsonString);
     // 元のエラーメッセージをラップして、より具体的な情報を提供する
@@ -118,11 +104,6 @@ function extractJsonFromScript(scriptText) {
   }
 }
 
-/**
- * キャラクター保管所からデータを取得する関数
- * @param {string} id - キャラクターID
- * @returns {Promise<string>} - 取得したJavaScript形式のデータ文字列
- */
 async function getCharaSheetData(id) {
   const url = `https://charasheet.vampire-blood.net/${id}.js`;
   try {
@@ -136,35 +117,20 @@ async function getCharaSheetData(id) {
   }
 }
 
-/**
- * Notionデータベース内をキャラクターIDで検索する関数
- * @param {Client} notion - Notionクライアントインスタンス
- * @param {string} databaseId - データベースID
- * @param {number} characterId - 検索するキャラクターID
- * @returns {Promise<object|null>} - 見つかったページオブジェクト、またはnull
- */
 async function findNotionPageByCharacterId(notion, databaseId, characterId) {
-    const response = await notion.databases.query({
-      database_id: databaseId,
-      filter: {
-        property: 'ID', // 検索対象のプロパティ名
-        number: {
-          equals: characterId,
-        },
+  const response = await notion.databases.query({
+    database_id: databaseId,
+    filter: {
+      property: 'ID',
+      number: {
+        equals: characterId,
       },
-    });
-    return response.results.length > 0 ? response.results[0] : null;
+    },
+  });
+  return response.results.length > 0 ? response.results[0] : null;
 }
 
-/**
- * キャラクター保管所のデータをNotionのプロパティ形式に変換する関数
- * @param {object} data - キャラクター保管所のデータ
- * @param {number} characterId - キャラクターID
- * @returns {object} - Notion API用のプロパティオブジェクト
- */
 function mapDataToNotionProperties(data, characterId) {
-  // チャットパレットの文字列を生成
-  // data.ar2 の形式は ["技能名", "初期値", "合計値"]
   const chatPaletteContent = (data.ar2 && Array.isArray(data.ar2))
     ? data.ar2.map(skill => `CCB<=${skill[2]} 【${skill[0]}】`).join('\n')
     : '';
