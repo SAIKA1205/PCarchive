@@ -2,6 +2,7 @@
 const express = require('express');
 const { Client } = require('@notionhq/client');
 const axios = require('axios');
+const vm = require('vm');
 require('dotenv').config(); // .envファイルから環境変数を読み込む
 const path = require('path');
 
@@ -33,8 +34,7 @@ app.post('/api/sync', async (req, res) => {
     console.log(`キャラクター保管所からデータを取得中... (ID: ${characterId})`);
     const charaDataText = await getCharaSheetData(characterId);
 
-    // 取得したJavaScriptコードからJSONオブジェクトを安全に抽出してパース
-    const charaData = JSON.parse(charaDataText);
+    const charaData = parseCharaJsToJson(charaDataText);
     console.log('データの取得と解析に成功しました。');
 
     // 2. Notionデータベースを検索して、該当キャラクターIDのページが既に存在するか確認
@@ -93,6 +93,16 @@ async function getCharaSheetData(id) {
     }
     throw new Error('キャラクター保管所からのデータ取得に失敗しました。');
   }
+}
+
+function parseCharaJsToJson(jsText) {
+  const sandbox = {};
+  vm.createContext(sandbox);
+  vm.runInContext(jsText, sandbox);
+  if (!sandbox.pc) {
+    throw new Error('キャラクターJSファイルから "pc" オブジェクトが見つかりません。');
+  }
+  return sandbox.pc;
 }
 
 async function findNotionPageByCharacterId(notion, databaseId, characterId) {
