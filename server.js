@@ -13,23 +13,19 @@ const PORT = process.env.PORT || 3000; // Render.comが自動で設定するポ�
 app.use(express.json()); // JSON形式のリクエストを解析できるようにする
 app.use(express.static(path.join(__dirname, 'public'))); // publicフォルダを静的ファイルの配信に使う
 
-// --- Notion APIキーの取得 ---
-// Render.comの環境変数に設定したNOTION_API_KEYを使用します
-const NOTION_API_KEY = process.env.NOTION_API_KEY;
-
 // --- APIエンドポイントの定義 ---
 // フロントエンドからのリクエストを受け付ける窓口
 app.post('/api/sync', async (req, res) => {
-  // リクエストからデータベースIDとキャラクターIDを取得
-  const { databaseId, characterId } = req.body;
+  // リクエストからAPIキー、データベースID、キャラクターIDを取得
+  const { notionApiKey, databaseId, characterId } = req.body;
 
-  // APIキー、データベースID、キャラクターIDが揃っているかチェック
-  if (!NOTION_API_KEY || !databaseId || !characterId) {
+  // 必要な情報が揃っているかチェック
+  if (!notionApiKey || !databaseId || !characterId) {
     return res.status(400).json({ message: 'APIキー、データベースID、キャラクターIDは必須です。' });
   }
 
-  // Notionクライアントの初期化
-  const notion = new Client({ auth: NOTION_API_KEY });
+  // Notionクライアントの初期化（リクエストごとにキーを設定）
+  const notion = new Client({ auth: notionApiKey });
   const numericCharacterId = parseInt(characterId, 10);
 
   try {
@@ -69,6 +65,13 @@ app.post('/api/sync', async (req, res) => {
 
   } catch (error) {
     console.error('エラーが発生しました:', error.response ? error.response.data : error.message);
+    // Notion APIからのエラーを分かりやすく表示する
+    if (error.code === 'unauthorized') {
+        return res.status(401).json({ message: 'Notion APIキーが無効です。正しいキーを入力してください。' });
+    }
+    if (error.code === 'object_not_found') {
+        return res.status(404).json({ message: '指定されたデータベースIDが見つかりません。IDが正しいか、インテグレーションがデータベースに招待されているか確認してください。'});
+    }
     res.status(500).json({ message: 'エラーが発生しました。詳細はサーバーログを確認してください。', error: error.message });
   }
 });
@@ -107,7 +110,6 @@ async function getCharaSheetData(id) {
  * @returns {Promise<object|null>} - 見つかったページオブジェクト、またはnull
  */
 async function findNotionPageByCharacterId(notion, databaseId, characterId) {
-  try {
     const response = await notion.databases.query({
       database_id: databaseId,
       filter: {
@@ -118,9 +120,6 @@ async function findNotionPageByCharacterId(notion, databaseId, characterId) {
       },
     });
     return response.results.length > 0 ? response.results[0] : null;
-  } catch(e) {
-      throw new Error("Notionデータベースの検索に失敗しました。データベースIDが正しいか、インテグレーションがデータベースに招待されているか確認してください。");
-  }
 }
 
 /**
