@@ -2,6 +2,7 @@
 const express = require('express');
 const { Client } = require('@notionhq/client');
 const axios = require('axios');
+const vm = require('vm');
 require('dotenv').config(); // .envファイルから環境変数を読み込む
 const path = require('path');
 
@@ -34,7 +35,7 @@ app.post('/api/sync', async (req, res) => {
     const charaDataText = await getCharaSheetData(characterId);
     
     // 取得したJavaScriptコードからJSONオブジェクトを安全に抽出して変換
-    const charaData = await extractJsonFromScript(charaDataText);
+    const charaData = extractJsonFromScript(charaDataText);
     console.log('データの取得と解析に成功しました。');
 
     // 2. Notionデータベースを検索して、該当キャラクターIDのページが既に存在するか確認
@@ -68,10 +69,10 @@ app.post('/api/sync', async (req, res) => {
     console.error('エラーが発生しました:', error.response ? error.response.data : error.message);
     // Notion APIからのエラーを分かりやすく表示する
     if (error.code === 'unauthorized') {
-        return res.status(401).json({ message: 'Notion APIキーが無効です。正しいキーを入力してください。' });
+      return res.status(401).json({ message: 'Notion APIキーが無効です。正しいキーを入力してください。' });
     }
     if (error.code === 'object_not_found') {
-        return res.status(404).json({ message: '指定されたデータベースIDが見つかりません。IDが正しいか、インテグレーションがデータベースに招待されているか確認してください。'});
+      return res.status(404).json({ message: '指定されたデータベースIDが見つかりません。IDが正しいか、インテグレーションがデータベースに招待されているか確認してください。'});
     }
     res.status(500).json({ message: `エラーが発生しました: ${error.message}` });
   }
@@ -82,24 +83,25 @@ app.listen(PORT, () => {
   console.log(`サーバーがポート${PORT}で起動しました。 http://localhost:${PORT}`);
 });
 
-async function extractJsonFromScript(scriptText) {
+function extractJsonFromScript(scriptText) {
   const prefix = 'var chara = ';
-  const startIndex = scriptText.indexOf(prefix) + prefix.length;
-  let jsonString = scriptText.substring(startIndex);
+  const startIndex = scriptText.indexOf(prefix);
+  if (startIndex === -1) {
+    throw new Error('スクリプト内に "var chara = " が見つかりません。');
+  }
 
-  if (jsonString.endsWith(';')) {
-    jsonString = jsonString.slice(0, -1);
+  let jsonString = scriptText.substring(startIndex + prefix.length);
+  if (jsonString.trim().endsWith(';')) {
+    jsonString = jsonString.trim().slice(0, -1);
   }
 
   try {
     const sandbox = {};
-    const vm = require('vm');
     vm.createContext(sandbox);
-    vm.runInContext(`result = ${jsonString}`, sandbox);
+    vm.runInContext(`var result = ${jsonString}`, sandbox);
     return sandbox.result;
   } catch (e) {
-    console.error("JSONの解析に失敗しました。抽出された文字列:", jsonString);
-    // 元のエラーメッセージをラップして、より具体的な情報を提供する
+    console.error('JSONの解析に失敗しました。抽出文字列:', jsonString);
     throw new Error(`キャラクターデータの解析に失敗しました。(${e.message})`);
   }
 }
