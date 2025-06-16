@@ -118,28 +118,34 @@ async function updateNotionDatabase(notion, databaseId, pcData, characterId) {
     .filter(Boolean)
     .join('\n');
 
+function extractNumber(str) {
+  if (!str) return null;
+  const match = String(str).match(/\d+/); // 連続する数字だけ抽出
+  return match ? Number(match[0]) : null;
+}
+
   const properties = {
-    職業: { rich_text: [{ text: { content: pcData.job || '' } }] },
-    性別: { select: pcData.gender ? { name: pcData.gender } : null },
-    年齢: { number: Number(pcData.age) || null },
-    身長: { number: Number(pcData.height) || null },
-    体重: { number: Number(pcData.weight) || null },
-    出身地: { select: pcData.origin ? { name: pcData.origin } : null },
-    髪色: { select: pcData.hairColor ? { name: pcData.hairColor } : null },
-    瞳色: { select: pcData.eyeColor ? { name: pcData.eyeColor } : null },
-    肌色: { select: pcData.skinColor ? { name: pcData.skinColor } : null },
-    STR: { select: pcData.status?.STR ? { name: String(pcData.status.STR) } : null },
-    CON: { select: pcData.status?.CON ? { name: String(pcData.status.CON) } : null },
-    POW: { select: pcData.status?.POW ? { name: String(pcData.status.POW) } : null },
-    DEX: { select: pcData.status?.DEX ? { name: String(pcData.status.DEX) } : null },
-    APP: { select: pcData.status?.APP ? { name: String(pcData.status.APP) } : null },
-    SIZ: { select: pcData.status?.SIZ ? { name: String(pcData.status.SIZ) } : null },
-    INT: { select: pcData.status?.INT ? { name: String(pcData.status.INT) } : null },
-    EDU: { select: pcData.status?.EDU ? { name: String(pcData.status.EDU) } : null },
-    SAN値: { number: Number(pcData.status?.SAN) || null },
-    アイデア: { number: Number(pcData.status?.アイデア) || null },
-    幸運: { number: Number(pcData.status?.幸運) || null },
-    知識: { number: Number(pcData.status?.知識) || null },
+    職業: { rich_text: [{ text: { content: pcData.shuzoku || '' } }] },
+    性別: { select: pcData.gender ? { name: pcData.sex } : null },
+    年齢: { number: extractNumber(pcData.age) },
+    身長: { number: extractNumber(pcData.pc_height) },
+    体重: { number: extractNumber(pcData.pc_weight) },
+    出身地: { select: pcData.origin ? { name: pcData.pc_kigen } : null },
+    髪色: { select: pcData.hairColor ? { name: pcData.color_hair } : null },
+    瞳色: { select: pcData.eyeColor ? { name: pcData.color_eye } : null },
+    肌色: { select: pcData.skinColor ? { name: pcData.color_skin } : null },
+    STR: { select: pcData.status?.STR ? { name: String(pcData.status.NP1) } : null },
+    CON: { select: pcData.status?.CON ? { name: String(pcData.status.NP2) } : null },
+    POW: { select: pcData.status?.POW ? { name: String(pcData.status.NP3) } : null },
+    DEX: { select: pcData.status?.DEX ? { name: String(pcData.status.NP4) } : null },
+    APP: { select: pcData.status?.APP ? { name: String(pcData.status.NP5) } : null },
+    SIZ: { select: pcData.status?.SIZ ? { name: String(pcData.status.NP6) } : null },
+    INT: { select: pcData.status?.INT ? { name: String(pcData.status.NP7) } : null },
+    EDU: { select: pcData.status?.EDU ? { name: String(pcData.status.NP8) } : null },
+    SAN値: { number: Number(pcData.status?.SAN_Left) || null },
+    アイデア: { number: Number(pcData.status?.NP12) || null },
+    幸運: { number: Number(pcData.status?.NP13) || null },
+    知識: { number: Number(pcData.status?.NP14) || null },
     メモ欄: { rich_text: [{ text: { content: pcData.memo || '' } }] },
     チャットパレット: { rich_text: [{ text: { content: chatPalette } }] },
     ID: { number: parseInt(characterId, 10) },
