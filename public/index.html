@@ -3,17 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="css/styles.css" />
-    <title>キャラクターデータ登録</title>
+    <title>Notion キャラクター保管所 同期ツール</title>
+    <!-- Tailwind CSSをCDNから読み込み -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* フォントや基本的なスタイルを設定 */
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+        }
+        /* ボタンのローディングアニメーション */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
-<body>
-    <div class="container">
-        <h1>キャラクター保管所 → Notion登録</h1>
-        <label for="characterId">キャラクターID</label>
-        <input type="text" id="characterId" name="characterId" placeholder="キャラクター保管所のIDを入力">
-        <button id="updateButton">更新</button>
-        <div id="message"></div>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-2xl">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Notion キャラクター保管所 同期ツール</h1>
+            <p class="mt-2 text-gray-600">キャラクター保管所のデータをNotionデータベースに同期します。</p>
+        </header>
+
+        <main class="bg-white p-6 md:p-8 rounded-xl shadow-md">
+            <form id="sync-form">
+                <div class="space-y-6">
+                    <div>
+                        <label for="database-id" class="block text-sm font-medium text-gray-700 mb-1">Notion データベースID</label>
+                        <input type="text" id="database-id" name="database-id" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="例: a1b2c3d4e5f67890a1b2c3d4e5f67890">
+                        <p class="mt-1 text-xs text-gray-500">ブラウザでデータベースを開いた際のURLに含まれる32文字のIDです。</p>
+                    </div>
+
+                    <div>
+                        <label for="character-id" class="block text-sm font-medium text-gray-700 mb-1">キャラクター保管所ID</label>
+                        <input type="number" id="character-id" name="character-id" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="例: 12345">
+                         <p class="mt-1 text-xs text-gray-500">キャラクターシートのURL末尾の数字です。</p>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <button type="submit" id="submit-button" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200 flex items-center justify-center">
+                        <span id="button-text">同期を実行</span>
+                        <div id="loader" class="loader hidden ml-3"></div>
+                    </button>
+                </div>
+            </form>
+
+            <!-- 結果表示エリア -->
+            <div id="result" class="mt-6 p-4 rounded-md text-sm"></div>
+        </main>
+
+        <footer class="mt-8 text-center text-gray-500 text-xs">
+            <p>※ このツールはNotion APIキーをサーバーの環境変数に設定して使用します。</p>
+            <p>※ ブラウザからAPIキーが直接送信されることはありません。</p>
+        </footer>
     </div>
-    <script src="script.js"></script>
+
+    <script>
+        const form = document.getElementById('sync-form');
+        const submitButton = document.getElementById('submit-button');
+        const buttonText = document.getElementById('button-text');
+        const loader = document.getElementById('loader');
+        const resultDiv = document.getElementById('result');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault(); // フォームのデフォルト送信をキャンセル
+
+            const databaseId = document.getElementById('database-id').value.trim().replace(/-/g, '');
+            const characterId = document.getElementById('character-id').value.trim();
+
+            if (!databaseId || !characterId) {
+                showResult('データベースIDとキャラクターIDを入力してください。', 'error');
+                return;
+            }
+
+            // ボタンをローディング状態にする
+            setLoading(true);
+            
+            try {
+                // バックエンドのAPIにリクエストを送信
+                const response = await fetch('/api/sync', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ databaseId, characterId }),
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    // APIがエラーを返した場合
+                    throw new Error(result.message || '不明なエラーが発生しました。');
+                }
+                
+                // 成功メッセージを表示
+                let successMessage = result.message;
+                if(result.url){
+                    successMessage += ` <a href="${result.url}" target="_blank" class="font-bold underline hover:text-indigo-700">Notionで確認する</a>`;
+                }
+                showResult(successMessage, 'success');
+
+            } catch (error) {
+                // エラーメッセージを表示
+                showResult(`エラー: ${error.message}`, 'error');
+            } finally {
+                // ボタンを通常状態に戻す
+                setLoading(false);
+            }
+        });
+
+        // ローディング状態を切り替える関数
+        function setLoading(isLoading) {
+            if (isLoading) {
+                submitButton.disabled = true;
+                buttonText.innerText = '同期中...';
+                loader.classList.remove('hidden');
+            } else {
+                submitButton.disabled = false;
+                buttonText.innerText = '同期を実行';
+                loader.classList.add('hidden');
+            }
+        }
+        
+        // 結果を表示する関数
+        function showResult(message, type) {
+            resultDiv.innerHTML = message;
+            if (type === 'success') {
+                resultDiv.className = 'mt-6 p-4 rounded-md text-sm bg-green-100 text-green-800';
+            } else {
+                resultDiv.className = 'mt-6 p-4 rounded-md text-sm bg-red-100 text-red-800';
+            }
+        }
+    </script>
 </body>
 </html>
