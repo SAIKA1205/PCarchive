@@ -2,7 +2,6 @@
 const express = require('express');
 const { Client } = require('@notionhq/client');
 const axios = require('axios');
-const vm = require('vm');
 require('dotenv').config(); // .envファイルから環境変数を読み込む
 const path = require('path');
 
@@ -33,9 +32,9 @@ app.post('/api/sync', async (req, res) => {
     // 1. キャラクター保管所からデータを取得
     console.log(`キャラクター保管所からデータを取得中... (ID: ${characterId})`);
     const charaDataText = await getCharaSheetData(characterId);
-    
-    // 取得したJavaScriptコードからJSONオブジェクトを安全に抽出して変換
-    const charaData = extractJsonFromScript(charaDataText);
+
+    // 取得したJavaScriptコードからJSONオブジェクトを安全に抽出してパース
+    const charaData = JSON.parse(charaDataText);
     console.log('データの取得と解析に成功しました。');
 
     // 2. Notionデータベースを検索して、該当キャラクターIDのページが既に存在するか確認
@@ -69,10 +68,10 @@ app.post('/api/sync', async (req, res) => {
     console.error('エラーが発生しました:', error.response ? error.response.data : error.message);
     // Notion APIからのエラーを分かりやすく表示する
     if (error.code === 'unauthorized') {
-      return res.status(401).json({ message: 'Notion APIキーが無効です。正しいキーを入力してください。' });
+        return res.status(401).json({ message: 'Notion APIキーが無効です。正しいキーを入力してください。' });
     }
     if (error.code === 'object_not_found') {
-      return res.status(404).json({ message: '指定されたデータベースIDが見つかりません。IDが正しいか、インテグレーションがデータベースに招待されているか確認してください。'});
+        return res.status(404).json({ message: '指定されたデータベースIDが見つかりません。IDが正しいか、インテグレーションがデータベースに招待されているか確認してください。'});
     }
     res.status(500).json({ message: `エラーが発生しました: ${error.message}` });
   }
@@ -82,29 +81,6 @@ app.post('/api/sync', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`サーバーがポート${PORT}で起動しました。 http://localhost:${PORT}`);
 });
-
-function extractJsonFromScript(scriptText) {
-  const prefix = 'var chara = ';
-  const startIndex = scriptText.indexOf(prefix);
-  if (startIndex === -1) {
-    throw new Error('スクリプト内に "var chara = " が見つかりません。');
-  }
-
-  let jsonString = scriptText.substring(startIndex + prefix.length);
-  if (jsonString.trim().endsWith(';')) {
-    jsonString = jsonString.trim().slice(0, -1);
-  }
-
-  try {
-    const sandbox = {};
-    vm.createContext(sandbox);
-    vm.runInContext(`var result = ${jsonString}`, sandbox);
-    return sandbox.result;
-  } catch (e) {
-    console.error('JSONの解析に失敗しました。抽出文字列:', jsonString);
-    throw new Error(`キャラクターデータの解析に失敗しました。(${e.message})`);
-  }
-}
 
 async function getCharaSheetData(id) {
   const url = `https://charasheet.vampire-blood.net/${id}.js`;
@@ -124,9 +100,7 @@ async function findNotionPageByCharacterId(notion, databaseId, characterId) {
     database_id: databaseId,
     filter: {
       property: 'ID',
-      number: {
-        equals: characterId,
-      },
+      number: { equals: characterId },
     },
   });
   return response.results.length > 0 ? response.results[0] : null;
