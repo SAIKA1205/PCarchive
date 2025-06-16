@@ -107,21 +107,6 @@ async function updateNotionDatabase(notion, databaseId, pcData, characterId) {
 
   const pageId = response.results[0]?.id;
 
-　// 名前の取得
-　function splitNameAndKana(nameWithKana) {
-  　const match = nameWithKana.match(/^(.+?)\((.+?)\)$/);
-  　if (match) {
-　    return {
-  　    name: match[1].trim(),
-    　  kana: match[2].trim(),
-    　};
-  　} else {
-　    return {
-  　    name: nameWithKana.trim(),
-    　  kana: '',
-    　};
-  　}
-　}
 　// 年齢・身長・体重の整形
 　function extractNumber(str) {
   　if (!str) return null;
@@ -152,8 +137,6 @@ async function updateNotionDatabase(notion, databaseId, pcData, characterId) {
     .join('\n');
 
   const properties = {
-    名前: { title: [{ text: { content: name }] },
-    カナ: { rich_text: [{ text: { content: kana } }] },
     職業: { rich_text: [{ text: { content: pcData.shuzoku || '' } }] },
     性別: { select: pcData.sex? { name: pcData.sex } : null },
     年齢: { number: extractNumber(pcData.age) },
