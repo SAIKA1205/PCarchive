@@ -32,8 +32,9 @@ app.post('/api/sync', async (req, res) => {
     // 1. キャラクター保管所からデータを取得
     console.log(`キャラクター保管所からデータを取得中... (ID: ${characterId})`);
     const charaDataText = await getCharaSheetData(characterId);
-    // 取得したJavaScriptコードから "var chara = " と末尾の ";" を削除してJSONオブジェクトに変換
-    const charaData = JSON.parse(charaDataText.substring(12, charaDataText.length - 1));
+    
+    // 取得したJavaScriptコードからJSONオブジェクトを安全に抽出して変換
+    const charaData = extractJsonFromScript(charaDataText);
     console.log('データの取得と解析に成功しました。');
 
     // 2. Notionデータベースを検索して、該当キャラクターIDのページが既に存在するか確認
@@ -72,7 +73,7 @@ app.post('/api/sync', async (req, res) => {
     if (error.code === 'object_not_found') {
         return res.status(404).json({ message: '指定されたデータベースIDが見つかりません。IDが正しいか、インテグレーションがデータベースに招待されているか確認してください。'});
     }
-    res.status(500).json({ message: 'エラーが発生しました。詳細はサーバーログを確認してください。', error: error.message });
+    res.status(500).json({ message: `エラーが発生しました: ${error.message}` });
   }
 });
 
@@ -83,6 +84,39 @@ app.listen(PORT, () => {
 
 
 // --- ヘルパー関数群 ---
+
+/**
+ * キャラクター保管所のレスポンス(JavaScript)からJSONオブジェクトを抽出する堅牢な関数
+ * @param {string} scriptText - キャラクター保管所から取得したJavaScriptコード
+ * @returns {object} - パースされたJSONオブジェクト
+ */
+function extractJsonFromScript(scriptText) {
+  const prefix = 'var chara = ';
+  // 先頭の空白をトリムして、期待した接頭辞で始まるか確認
+  if (!scriptText.trim().startsWith(prefix)) {
+    console.error('予期しないデータ形式です:', scriptText);
+    throw new Error('キャラクター保管所から予期しない形式のデータが返されました。');
+  }
+  
+  // 接頭辞 'var chara = ' が開始するインデックスを探す
+  const startIndex = scriptText.indexOf(prefix) + prefix.length;
+  // 接頭辞以降の文字列を抽出
+  let jsonString = scriptText.substring(startIndex);
+
+  // 末尾に ';' があれば取り除く
+  if (jsonString.endsWith(';')) {
+    jsonString = jsonString.slice(0, -1);
+  }
+
+  try {
+    // JSONとしてパース
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.error("JSONの解析に失敗しました。抽出された文字列:", jsonString);
+    // 元のエラーメッセージをラップして、より具体的な情報を提供する
+    throw new Error(`キャラクターデータの解析に失敗しました。(${e.message})`);
+  }
+}
 
 /**
  * キャラクター保管所からデータを取得する関数
