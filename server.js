@@ -113,7 +113,6 @@ async function updateNotionDatabase(notion, databaseId, pcData, characterId) {
   　const match = String(str).match(/\d+/); // 連続する数字だけ抽出
   　return match ? Number(match[0]) : null;
 　}
-　const { name, kana } = splitNameAndKana(pcData.name || '');
 
 　// メモ欄の整形
 　function filterSpoiler(text) {
