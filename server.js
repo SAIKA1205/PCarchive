@@ -124,6 +124,24 @@ async function updateNotionDatabase(notion, databaseId, pcData, characterId) {
   　return text; // キーワードがなければそのまま返す
 　}
 
+　// メモ欄の処理：2000字以内なら使用、超える場合は空にする
+　let memoContent;
+　try {
+  　const rawMemo = pcData.pc_making_memo || '';
+  　const filteredMemo = filterSpoiler(rawMemo);
+  　if (filteredMemo.length > 2000) {
+    　throw new Error('メモ欄が2000字を超えているためスキップ');
+  　}
+  　memoContent = {
+　    rich_text: [{
+  　    text: { content: filteredMemo }
+    　}]
+  　};
+　} catch (err) {
+  　console.warn('⚠️ メモ欄の処理でエラー:', err.message);
+  　memoContent = { rich_text: [] };
+　}
+	
   // チャットパレット生成
   const chatPalette = Object.entries(pcData.status || {})
     .map(([key, val]) => {
@@ -157,7 +175,7 @@ async function updateNotionDatabase(notion, databaseId, pcData, characterId) {
     アイデア: { number: Number(pcData.NP12) || null },
     幸運: { number: Number(pcData.NP13) || null },
     知識: { number: Number(pcData.NP14) || null },
-    メモ欄: { rich_text: [{ text: { content: filterSpoiler(pcData.pc_making_memo || ''),},}],},
+    メモ欄:  memoContent,
     チャットパレット: { rich_text: [{ text: { content: chatPalette } }] },
     ID: { number: parseInt(characterId, 10) },
   };
