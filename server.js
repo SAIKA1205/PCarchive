@@ -116,7 +116,7 @@ async function updateNotionDatabase(notion, databaseId, pcData, characterId) {
 
 　// メモ欄の整形
 　function filterSpoiler(text) {
-　  const spoilerKeyword = '[ 通過シナリオ ]';
+　  const spoilerKeyword = '通過シナリオ';
   　const index = text.indexOf(spoilerKeyword);
   　if (index !== -1) {
     　return text.slice(0, index).trim(); // ネタバレ部分を削除
