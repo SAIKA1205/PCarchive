@@ -156,9 +156,9 @@ async function updateNotionDatabase(notion, databaseId, pcData, characterId) {
   const properties = {
     職業: { rich_text: [{ text: { content: pcData.shuzoku || '' } }] },
     性別: { select: pcData.sex? { name: pcData.sex } : null },
-    年齢(入力用): { number: extractNumber(pcData.age) },
-    身長(入力用): { number: extractNumber(pcData.pc_height) },
-    体重(入力用): { number: extractNumber(pcData.pc_weight) },
+    年齢（入力用）: { number: extractNumber(pcData.age) },
+    身長（入力用）: { number: extractNumber(pcData.pc_height) },
+    体重（入力用）: { number: extractNumber(pcData.pc_weight) },
     出身地: { select: pcData.pc_kigen? { name: pcData.pc_kigen } : null },
     髪色: { select: pcData.color_hair? { name: pcData.color_hair } : null },
     瞳色: { select: pcData.color_eye? { name: pcData.color_eye } : null },
